@@ -206,6 +206,8 @@ export default function App() {
                   id="partTargetInput"
                   className="input-field"
                   placeholder="e.g. 28, 48"
+                  inputMode="numeric"
+                  step="1"
                   min="1"
                   value={partTarget}
                   onChange={(e) => setPartTarget(e.target.value)}

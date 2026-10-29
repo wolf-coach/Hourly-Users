@@ -62,6 +62,7 @@ export default function App() {
   const { message: toastMsg, visible: toastVisible, showToast } = useToast();
 
   const [allLogs, setAllLogs] = useState({});
+  const [logsLoading, setLogsLoading] = useState(true);
   const [totalMachineCount, setTotalMachineCount] = useState(21);
   const [liveText, setLiveText] = useState("Live · connecting");
   const [clock, setClock] = useState("--:--:--");
@@ -101,10 +102,12 @@ export default function App() {
       logsRef,
       (snapshot) => {
         setAllLogs(snapshot.exists() ? snapshot.val() : {});
+        setLogsLoading(false);
         setLiveText("Live · synced " + new Date().toLocaleTimeString("en-GB"));
       },
       (err) => {
         console.error(err);
+        setLogsLoading(false);
         setLiveText("Connection error");
         showToast("⚠️ Could not reach Realtime Database");
       }
@@ -172,6 +175,16 @@ export default function App() {
   }, [filteredLogs, totalMachineCount, shift, date]);
 
   const detailLog = detailKey ? allLogs[detailKey] : null;
+  const detailHours = detailLog ? normalizeHours(detailLog.hours) : [];
+  const detailHourlyTarget = Number(detailLog?.hourlyTarget) || 0;
+  const detailActualTotal = detailHours.reduce((sum, hour) => sum + (Number(hour) || 0), 0);
+  const belowTargetHours = detailHours.filter((hour) => Number(hour) < detailHourlyTarget).length;
+  const hoursWithReasons = detailHours.filter((_, index) => {
+    const reason = detailLog?.reasons?.[index];
+    return Array.isArray(reason) ? reason.length > 0 : Boolean(reason);
+  }).length;
+
+  if (logsLoading) return <DashboardSkeleton />;
 
   return (
     <>
@@ -293,7 +306,7 @@ export default function App() {
               if (e.target === e.currentTarget) setDetailKey(null);
             }}
           >
-            <motion.div className="modal" variants={modalPop} initial="initial" animate="animate" exit="exit">
+            <motion.div className="modal detail-modal" variants={modalPop} initial="initial" animate="animate" exit="exit">
               <div className="modal-head">
                 <div>
                   <h2>{detailLog.machineId || "—"}</h2>
@@ -305,40 +318,67 @@ export default function App() {
                   <i className="fa-solid fa-xmark" />
                 </motion.button>
               </div>
-              <table className="hour-table">
-                <thead>
-                  <tr>
-                    <th>Hour</th>
-                    <th>Target</th>
-                    <th>Actual</th>
-                    <th>Status</th>
-                    <th>Reason</th>
-                    <th>Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {normalizeHours(detailLog.hours).map((h, i) => {
-                    const below = Number(h) < (detailLog.hourlyTarget || 0);
-                    const reason = (detailLog.reasons && detailLog.reasons[i]) || "—";
-                    const note = (detailLog.reasonNotes && detailLog.reasonNotes[i]) || "";
-                    return (
-                      <motion.tr
-                        key={i}
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.20, duration: 0.10 }}
-                      >
-                        <td>H{i + 1}</td>
-                        <td>{detailLog.hourlyTarget || 0}</td>
-                        <td>{h}</td>
-                        <td><span className={`pill-status ${below ? "low" : "ok"}`}>{below ? "BELOW" : "OK"}</span></td>
-                        <td>{reason}</td>
-                        <td>{note}</td>
-                      </motion.tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="detail-summary" aria-label="Shift hour summary">
+                <div className="detail-summary-item">
+                  <span>SHIFT OUTPUT</span>
+                  <strong>{detailActualTotal} <small>/ {detailHourlyTarget * detailHours.length}</small></strong>
+                </div>
+                <div className="detail-summary-item">
+                  <span>BELOW TARGET</span>
+                  <strong className={belowTargetHours ? "summary-alert" : ""}>{belowTargetHours} <small>hours</small></strong>
+                </div>
+                <div className="detail-summary-item">
+                  <span>DOWNTIME TAGGED</span>
+                  <strong>{hoursWithReasons} <small>hours</small></strong>
+                </div>
+              </div>
+              <div className="hour-table-scroll">
+                <table className="hour-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Hour</th>
+                      <th scope="col">Output</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Downtime reason</th>
+                      <th scope="col">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailHours.map((h, i) => {
+                      const actual = Number(h) || 0;
+                      const below = actual < detailHourlyTarget;
+                      const storedReason = detailLog.reasons && detailLog.reasons[i];
+                      const reason = Array.isArray(storedReason) ? storedReason.join(", ") : storedReason || "";
+                      const note = (detailLog.reasonNotes && detailLog.reasonNotes[i]) || "";
+                      const outputPercent = detailHourlyTarget > 0
+                        ? Math.min((actual / detailHourlyTarget) * 100, 100)
+                        : 0;
+                      return (
+                        <motion.tr
+                          key={i}
+                          className={below ? "hour-row-low" : "hour-row-ok"}
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.04, duration: 0.1 }}
+                        >
+                          <th scope="row"><span className="hour-index">H{i + 1}</span></th>
+                          <td>
+                            <div className="hour-output">
+                              <span><strong>{actual}</strong><small> / {detailHourlyTarget}</small></span>
+                              <span className="hour-output-track" aria-hidden="true">
+                                <span style={{ width: `${outputPercent}%` }} />
+                              </span>
+                            </div>
+                          </td>
+                          <td><span className={`pill-status ${below ? "low" : "ok"}`}>{below ? "BELOW" : "GOOD"}</span></td>
+                          <td className={reason ? "" : "cell-muted"}>{reason || "—"}</td>
+                          <td className={note ? "" : "cell-muted"}>{note || "—"}</td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -346,6 +386,58 @@ export default function App() {
 
       <Toast message={toastMsg} visible={toastVisible} />
     </>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="dashboard-skeleton" role="status" aria-label="Loading production dashboard">
+      <div className="skeleton-topbar">
+        <div className="skeleton-brand">
+          <div className="skeleton-block skeleton-brand-mark" />
+          <div className="skeleton-brand-copy">
+            <div className="skeleton-block skeleton-title" />
+            <div className="skeleton-block skeleton-subtitle" />
+          </div>
+        </div>
+        <div className="skeleton-block skeleton-live" />
+      </div>
+
+      <div className="skeleton-kpis">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div className="skeleton-kpi" key={index}>
+            <div className="skeleton-block skeleton-kpi-label" />
+            <div className="skeleton-block skeleton-kpi-value" />
+            <div className="skeleton-block skeleton-kpi-sub" />
+          </div>
+        ))}
+      </div>
+
+      <div className="skeleton-filter">
+        {[1, 2, 3, 4].map((item) => <div className="skeleton-block skeleton-filter-control" key={item} />)}
+      </div>
+
+      <div className="skeleton-section-heading">
+        <div className="skeleton-block skeleton-heading" />
+        <div className="skeleton-block skeleton-count" />
+      </div>
+
+      <div className="skeleton-machines">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div className="skeleton-machine" key={index}>
+            <div className="skeleton-machine-top">
+              <div className="skeleton-block skeleton-machine-id" />
+              <div className="skeleton-block skeleton-shift" />
+            </div>
+            <div className="skeleton-block skeleton-part" />
+            <div className="skeleton-block skeleton-operator" />
+            <div className="skeleton-block skeleton-gauge" />
+            <div className="skeleton-block skeleton-output" />
+          </div>
+        ))}
+      </div>
+      <span className="skeleton-announcement">Loading production data…</span>
+    </div>
   );
 }
 

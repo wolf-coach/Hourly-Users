@@ -252,10 +252,10 @@
       background: linear-gradient(145deg, var(--paper), var(--cream));
       border: 1.5px solid rgba(42, 58, 92, 0.35);
       border-radius: 16px;
-      padding: 16px;
+      padding: 14px 14px 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       box-shadow: 0 5px 16px rgba(22, 34, 63, 0.07);
     }
 
@@ -280,9 +280,9 @@
     .hour-pill label {
       min-width: 0;
       color: var(--navy);
-      font-size: 0.72rem;
+      font-size: 0.78rem;
       font-weight: 700;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.65px;
       overflow-wrap: anywhere;
     }
 
@@ -293,34 +293,43 @@
       border-radius: 999px;
       background: rgba(22, 34, 63, 0.07);
       color: var(--ink-dim);
-      font-size: 0.58rem;
+      font-size: 0.64rem;
       font-weight: 700;
       letter-spacing: 0.3px;
-      line-height: 1.3;
+      line-height: 1.35;
       overflow-wrap: anywhere;
       text-align: center;
     }
 
-    .hour-pill input {
+    .hour-count-input {
       width: 100%;
-      height: 62px;
-      background: var(--cream);
-      border: 1.5px solid rgba(42, 58, 92, 0.12);
+      height: 58px;
+      border: 1.5px solid transparent;
       border-radius: 12px;
-      color: var(--navy);
       font-family: var(--mono);
-      font-size: 1.9rem;
+      font-size: 2rem;
       font-weight: 700;
       text-align: center;
       outline: none;
       appearance: textfield;
-      transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
     }
 
-    .hour-pill input:focus {
-      background: var(--paper);
-      border-color: var(--brick);
-      box-shadow: 0 0 0 3px rgba(178, 58, 46, 0.1);
+    .hour-count-input.below-target {
+      background: var(--rose-bg);
+      border-color: rgba(143, 50, 38, 0.28);
+      color: var(--rose-ink);
+    }
+
+    .hour-count-input.target-met {
+      background: var(--sage-bg);
+      border-color: rgba(43, 94, 58, 0.28);
+      color: var(--sage-ink);
+    }
+
+    .hour-count-input:focus {
+      border-color: currentColor;
+      box-shadow: 0 0 0 3px rgba(22, 34, 63, 0.1);
     }
 
     .hour-entry-layout {
@@ -375,10 +384,11 @@
     .reason-btn {
       width: 100%;
       margin-top: 8px;
-      font-size: 0.65rem;
+      min-height: 34px;
+      font-size: 0.68rem;
       font-family: var(--mono);
       font-weight: 700;
-      padding: 6px 4px;
+      padding: 7px 8px;
       border-radius: 6px;
       border: 1.5px solid var(--rose-ink);
       background: var(--paper);
@@ -387,11 +397,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 6px;
       transition: all 0.2s ease;
       overflow: hidden;
       white-space: normal;
-      line-height: 1.35;
+      line-height: 1.4;
       overflow-wrap: anywhere;
     }
 
@@ -399,6 +409,11 @@
       min-width: 0;
       text-align: center;
       overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
     }
 
     .reason-btn:hover {
@@ -428,6 +443,68 @@
       line-height: 1.35;
     }
 
+    @media (max-width: 600px) {
+      .hours-grid {
+        gap: 8px;
+      }
+
+      .hour-pill {
+        padding: 10px 8px 10px 12px;
+        gap: 7px;
+        border-radius: 12px;
+      }
+
+      .hour-pill-header {
+        min-height: 18px;
+        gap: 4px;
+      }
+
+      .hour-pill label {
+        font-size: 0.62rem;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+      }
+
+      .hour-target-label {
+        flex-shrink: 0;
+        padding: 3px 5px;
+        font-size: 0.52rem;
+        letter-spacing: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      .hour-count-input {
+        height: 46px;
+        border-radius: 9px;
+        font-size: 1.55rem;
+      }
+
+      .reason-btn {
+        min-height: 30px;
+        flex-wrap: nowrap;
+        gap: 4px;
+        padding: 5px;
+        font-size: 0.58rem;
+        white-space: nowrap;
+      }
+
+      .reason-btn-label {
+        display: block;
+        flex: 1;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .hour-good {
+        min-height: 26px;
+        flex-wrap: nowrap;
+        gap: 4px;
+        font-size: 0.58rem;
+        white-space: nowrap;
+      }
+    }
+
     .btn-action {
       width: 100%;
       background: var(--navy);
@@ -452,6 +529,15 @@
       background: var(--brick);
       border-color: var(--brick);
       transform: translateY(-2px);
+    }
+
+    .btn-action.btn-save-data {
+      width: min(100%, 260px);
+      margin: 18px auto 0;
+      padding: 12px 20px;
+      font-size: 0.84rem;
+      letter-spacing: 0.7px;
+      gap: 8px;
     }
 
     .btn-action:disabled {
@@ -795,6 +881,16 @@
       border-color: var(--sage-ink);
       background: var(--sage-bg);
       box-shadow: 3px 3px 0 var(--sage-ink);
+    }
+
+    .popup-card.reason-choice {
+      font: inherit;
+      color: inherit;
+    }
+
+    .popup-card.reason-choice:focus-visible {
+      outline: 2px solid var(--brick);
+      outline-offset: 3px;
     }
 
     .popup-card-selected {

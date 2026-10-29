@@ -97,6 +97,11 @@ function buildLogKey(dateStr, shift, machineId, operatorId) {
     return `${dateStr}_Shift${shift}_${cleanMachine}_${operatorId}`;
 }
 
+function normalizeReasons(value) {
+    if (Array.isArray(value)) return value.filter((reason) => typeof reason === "string" && reason);
+    return typeof value === "string" && value ? [value] : [];
+}
+
 export default function App() {
     usePageStylesheet("/styles/operator.css");
     const { message: toastMsg, visible: toastVisible, showToast } = useToast();
@@ -587,7 +592,7 @@ export default function App() {
     // ==================================================================
     function openReasonModal(h) {
         setActiveModalHour(h);
-        setTempSelectedReason((session.reasons && session.reasons[h]) || "");
+        setTempSelectedReason(normalizeReasons(session.reasons && session.reasons[h]));
         setCustomNote((session.reasonNotes && session.reasonNotes[h]) || "");
         setReasonModalOpen(true);
     }
@@ -597,22 +602,11 @@ export default function App() {
         setSession((s) => {
             const reasons = { ...s.reasons };
             const reasonNotes = { ...s.reasonNotes };
-            if (tempSelectedReason) reasons[activeModalHour] = tempSelectedReason;
+            if (tempSelectedReason.length === 1) reasons[activeModalHour] = tempSelectedReason[0];
+            else if (tempSelectedReason.length > 1) reasons[activeModalHour] = tempSelectedReason;
             else delete reasons[activeModalHour];
             if (note) reasonNotes[activeModalHour] = note;
             else delete reasonNotes[activeModalHour];
-            return { ...s, reasons, reasonNotes };
-        });
-        setReasonModalOpen(false);
-        scheduleAutoSave();
-    }
-
-    function clearSelectedReason() {
-        setSession((s) => {
-            const reasons = { ...s.reasons };
-            const reasonNotes = { ...s.reasonNotes };
-            delete reasons[activeModalHour];
-            delete reasonNotes[activeModalHour];
             return { ...s, reasons, reasonNotes };
         });
         setReasonModalOpen(false);
@@ -732,11 +726,16 @@ export default function App() {
                         key="reason"
                         hour={activeModalHour}
                         tempSelectedReason={tempSelectedReason}
-                        setTempSelectedReason={setTempSelectedReason}
+                        onToggleReason={(reason) => {
+                            setTempSelectedReason((selected) => (
+                                selected.includes(reason)
+                                    ? selected.filter((item) => item !== reason)
+                                    : [...selected, reason]
+                            ));
+                        }}
                         customNote={customNote}
                         setCustomNote={setCustomNote}
                         onSave={saveSelectedReason}
-                        onCancel={clearSelectedReason}
                         onClose={closeModals}
                     />
                 )}
@@ -1254,31 +1253,45 @@ function PartModal({ parts, currentName, onSelect, onClose }) {
     );
 }
 
-function ReasonModal({ hour, tempSelectedReason, setTempSelectedReason, customNote, setCustomNote, onSave, onCancel, onClose }) {
+function ReasonModal({ hour, tempSelectedReason, onToggleReason, customNote, setCustomNote, onSave, onClose }) {
     return (
         <motion.div className="overlay-container" variants={overlayFade} initial="initial" animate="animate" exit="exit">
             <motion.div className="modal-box" variants={modalPop} initial="initial" animate="animate" exit="exit">
                 <div className="modal-header">
-                    <h3><i className="fa-solid fa-triangle-exclamation" /> DOWNTIME REASON <span>{hour + 1}</span></h3>
+                    <h3><i className="fa-solid fa-triangle-exclamation" /> DOWNTIME REASONS <span>{hour + 1}</span></h3>
                     <motion.button className="close-btn" onClick={onClose} {...chipTap}><i className="fa-solid fa-xmark" /></motion.button>
                 </div>
 
                 <div className="field-group" style={{ marginTop: 0, marginBottom: 16 }}>
-                    <label>SELECT CATEGORY</label>
+                    <label>SELECT ALL THAT APPLY</label>
                 </div>
 
                 <motion.div className="popup-grid popup-grid-reasons" variants={gridContainer} initial="initial" animate="animate">
                     {REASON_PRESETS.map((r) => (
                         <motion.div
                             key={r.id}
-                            className={`popup-card ${r.id === tempSelectedReason ? "active" : ""}`}
-                            onClick={() => setTempSelectedReason(r.id)}
+                            className={`popup-card reason-choice ${tempSelectedReason.includes(r.id) ? "active" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={tempSelectedReason.includes(r.id)}
+                            onClick={() => onToggleReason(r.id)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    onToggleReason(r.id);
+                                }
+                            }}
                             variants={gridItem}
                             whileHover={{ y: -3 }}
                             whileTap={{ scale: 0.96 }}
                         >
                             <i className={`fa-solid ${r.icon}`} style={{ fontSize: "1.4rem", marginBottom: 6, color: "var(--brick)" }} />
                             <div className="popup-card-title">{r.label}</div>
+                            {tempSelectedReason.includes(r.id) && (
+                                <span className="popup-card-selected" aria-hidden="true">
+                                    <i className="fa-solid fa-check" />
+                                </span>
+                            )}
                         </motion.div>
                     ))}
                 </motion.div>
@@ -1298,9 +1311,9 @@ function ReasonModal({ hour, tempSelectedReason, setTempSelectedReason, customNo
 
                 <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
                     <motion.button className="btn-action" style={{ flex: 2, fontSize: "0.85rem", padding: 12 }} onClick={onSave} {...buttonTap}>
-                        SAVE REASON <i className="fa-solid fa-check" />
+                        SAVE REASONS <i className="fa-solid fa-check" />
                     </motion.button>
-                    <motion.button className="btn-danger-outline" style={{ flex: 1, marginTop: 0, fontSize: "0.75rem", padding: 12 }} onClick={onCancel} {...buttonTap}>
+                    <motion.button className="btn-danger-outline" style={{ flex: 1, marginTop: 0, fontSize: "0.75rem", padding: 12 }} onClick={onClose} {...buttonTap}>
                         CANCEL
                     </motion.button>
                 </div>
@@ -1358,7 +1371,8 @@ function MachineCard({
                 <motion.div className="hours-grid" variants={gridContainer} initial="initial" animate="animate">
                     {session.hours.map((val, h) => {
                         const belowTarget = Number(val) < session.target;
-                        const currentReason = session.reasons[h] || "";
+                        const currentReasons = normalizeReasons(session.reasons[h]);
+                        const currentReason = currentReasons.join(", ");
                         const hasReason = Boolean(currentReason);
                         return (
                             <motion.div
@@ -1404,6 +1418,7 @@ function MachineCard({
                                 </div>
                                 <motion.input
                                     id={`hour-input-${h}`}
+                                    className={`hour-count-input ${belowTarget ? "below-target" : "target-met"}`}
                                     type="text"
                                     inputMode="numeric"
                                     pattern="[0-9]*"
@@ -1425,6 +1440,8 @@ function MachineCard({
                                                 key="reason-btn"
                                                 type="button"
                                                 className={`reason-btn ${hasReason ? "has-reason" : ""}`}
+                                                aria-label={hasReason ? `Selected reasons: ${currentReason}` : `Select a reason for hour ${h + 1}`}
+                                                title={hasReason ? currentReason : undefined}
                                                 onClick={() => onOpenReasonModal(h)}
                                                 initial={{ opacity: 0, height: 0, marginTop: 0 }}
                                                 animate={{ opacity: 1, height: "auto", marginTop: 8 }}
@@ -1495,7 +1512,7 @@ function MachineCard({
                 </AnimatePresence>
             </motion.div>
 
-            <motion.button className="btn-action" onClick={onSave} disabled={syncBusy} style={{ opacity: syncBusy ? 0.7 : 1 }} {...buttonTap}>
+            <motion.button className="btn-action btn-save-data" onClick={onSave} disabled={syncBusy} style={{ opacity: syncBusy ? 0.7 : 1 }} {...buttonTap}>
                 {syncBusy ? (
                     <>SAVING... <i className="fa-solid fa-spinner fa-spin" /></>
                 ) : (

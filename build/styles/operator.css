@@ -411,6 +411,23 @@
       color: #fff;
     }
 
+    .hour-good {
+      width: 100%;
+      min-height: 28px;
+      border: 1.5px solid rgba(43, 94, 58, 0.35);
+      border-radius: 6px;
+      background: #cfe6cf;
+      color: #2b5e3a;
+      font-size: 0.65rem;
+      font-family: var(--mono);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      line-height: 1.35;
+    }
+
     .btn-action {
       width: 100%;
       background: var(--navy);
